@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import './App.css'
 import audio1 from './assets/audio/1.mp3'
 import audio2 from './assets/audio/2.mp3'
@@ -11,25 +11,56 @@ function App() {
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const [spacerSize, setSpacerSize] = useState<{ width: number; height: number } | null>(null);
   const [showYippieCat, setShowYippieCat] = useState(false);
+  const [siteStarted, setSiteStarted] = useState(false);
   const buttonRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastAudioIndexRef = useRef<number | null>(null);
   const audioFiles = [audio1, audio2, audio3];
+  const audioElementsRef = useRef<HTMLAudioElement[]>([]);
+  const audioUnlockedRef = useRef(false);
+
+  // Pre-create audio elements
+  useEffect(() => {
+    audioElementsRef.current = audioFiles.map(src => new Audio(src));
+  }, []);
+
+  // Unlock audio on first user interaction
+  const unlockAudio = () => {
+    if (!audioUnlockedRef.current && audioElementsRef.current.length > 0) {
+      // Try to play and immediately pause the first audio to unlock the audio context
+      const firstAudio = audioElementsRef.current[0];
+      firstAudio.volume = 0;
+      firstAudio.play().then(() => {
+        firstAudio.pause();
+        firstAudio.currentTime = 0;
+        firstAudio.volume = 1;
+        audioUnlockedRef.current = true;
+      }).catch(() => {
+        // If it fails, audio is still locked, but that's okay
+      });
+    }
+  };
+
+  const handleStartClick = () => {
+    unlockAudio();
+    setSiteStarted(true);
+  };
 
   const playRandomAudio = () => {
     // Filter out the last played audio
-    const availableAudios = audioFiles.filter((_, index) => index !== lastAudioIndexRef.current);
+    const availableAudios = audioElementsRef.current.filter((_, index) => index !== lastAudioIndexRef.current);
 
     // Select random audio from available ones
     const randomIndex = Math.floor(Math.random() * availableAudios.length);
     const randomAudio = availableAudios[randomIndex];
 
     // Find the original index to track it
-    const originalIndex = audioFiles.indexOf(randomAudio);
+    const originalIndex = audioElementsRef.current.indexOf(randomAudio);
     lastAudioIndexRef.current = originalIndex;
 
-    const audio = new Audio(randomAudio);
-    audio.play().catch(error => {
+    // Reset audio to start and play
+    randomAudio.currentTime = 0;
+    randomAudio.play().catch(error => {
       console.error('Error playing audio:', error);
     });
   }
@@ -72,6 +103,7 @@ function App() {
   }
 
   const handleYesClick = () => {
+    unlockAudio();
     setShowYippieCat(true);
   }
 
@@ -84,8 +116,14 @@ function App() {
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
       }}
+      onClick={siteStarted ? unlockAudio : handleStartClick}
     >
-      {showYippieCat ? (
+      {!siteStarted ? (
+        <div className='flex flex-col items-center justify-center cursor-pointer'>
+          <h1 className="comic-sans text-4xl mb-4">CLick anywhere to start</h1>
+          <p className="comic-sans text-2xl">💕</p>
+        </div>
+      ) : showYippieCat ? (
         <>
           <img src="https://media1.tenor.com/m/RiZpodi6JD0AAAAd/fast-cat-cat-excited.gif">
           </img>
@@ -112,7 +150,8 @@ function App() {
                 top: position ? `${position.y}px` : 'auto',
                 transform: `scale(${scale / 100})`,
               }}
-              onMouseOver={onHover}
+              onMouseEnter={onHover}
+              onClick={unlockAudio}
             >
               <button className='z-99'>nein :(</button>
             </div>
