@@ -62,3 +62,6 @@ typings/
 
 # Yarn Integrity file
 .yarn-integrity
+
+# Lock files (using bun)
+package-lock.json
